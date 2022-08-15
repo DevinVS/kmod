@@ -12,6 +12,7 @@ MODULE_LICENSE("GPL");
 static struct nf_hook_ops nfho;
 struct sk_buff *sock_buff;
 const char * msg = "Hello World";
+static unsigned int count = 0;
 
 static unsigned int my_func(
     void *priv,
@@ -21,28 +22,33 @@ static unsigned int my_func(
     struct iphdr * iph;
     struct udphdr * udph;
     int msg_len;
-    unsigned char * data;
-    
-    if (skb == 0)
-        return NF_ACCEPT;
+    unsigned char * payload;
 
-    iph = ip_hdr(skb);
-    udph = udp_hdr(skb);
-
-    iph->protocol = IPPROTO_UDP;
-    iph->daddr = htonl(0xC0A8019A); // 192.168.1.154
-
-    udph->dest = htons(8000);           // port 8000
-    udph->check = 0;                    // no checksum
-
-    // Set tail to end of udp header
-    skb->tail = skb->transport_header + 8;
-    skb->len = skb->transport_header + 8;
-
-    // Copy msg to data
     msg_len = strlen(msg);
-    data = skb_put(skb, msg_len);
-    strcpy(data, msg);
+
+	if (skb == 0) {
+        return NF_ACCEPT;
+	}
+
+	count++;
+	if (count % 5 == 0) {
+		iph = ip_hdr(skb);
+		udph = udp_hdr(skb);
+
+		printk("saddr: %X", iph->saddr);
+		printk("daddr: %X", iph->daddr);
+
+		iph->protocol = IPPROTO_UDP;
+		iph->daddr = htonl(0xC0A88383); // 192.168.131.131
+
+		udph->dest = htons(8000);           // port 8000
+		udph->check = 0;                    // no checksum
+		udph->len = htons(8 + msg_len);			// message length
+
+		// Copy msg to data
+		payload = skb->head + skb->transport_header + 8;
+		strcpy(payload, msg);
+	}
 
     return NF_ACCEPT;
 }
